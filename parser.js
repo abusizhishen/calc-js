@@ -1,3 +1,14 @@
+const Numeric = {type:1,Text:"number"}
+const  StringType={type:2,Text:"string"}
+const  AddSymbol={type:3,Text:"+"}
+const  SubSymbol={type:4,Text:"-"}
+const  MulSymbol={type:5,Text:"*"}
+const  DivSymbol={type:6,Text:"/"}
+const  LeftParenthesisSymbol={type:7,Text:"("}
+const  RightParenthesisSymbol = {type:8,Text:")"}
+
+
+
 class Token{
     constructor(type,text){
         this.type = type
@@ -5,7 +16,7 @@ class Token{
     }
 }
 
-class Parser {
+class Lexer {
     constructor(code) {
         this.code = code;
         this.position = 0
@@ -39,7 +50,7 @@ class Parser {
             ch = this.readNextCh()
         }
 
-        return new Token("number", this.code.substring(position,this.readPosition))
+        return new Token(Numeric.type, this.code.substring(position,this.readPosition))
     }
 
     readCh(){
@@ -76,18 +87,18 @@ class Parser {
         }
 
         switch (String.fromCharCode(this.ch)) {
-          case '+':
-            return new Token("symbol","+")
-          case '-':
-            return new Token("symbol","-")
-          case '*':
-            return new Token("symbol","*")
-          case '/':
-            return new Token("symbol","/")
-          case '(':
-            return new Token("symbol","(")
-          case ')':
-            return new Token("symbol",")")
+          case AddSymbol.Text:
+            return AddSymbol
+          case SubSymbol.Text:
+            return SubSymbol
+          case MulSymbol.Text:
+            return MulSymbol
+          case DivSymbol.Text:
+            return DivSymbol
+          case LeftParenthesisSymbol:
+            return LeftParenthesisSymbol
+          case RightParenthesisSymbol:
+            return RightParenthesisSymbol
           default:
             throw "invalid char: "
         }
@@ -107,9 +118,94 @@ class Parser {
     }
 }
 
+class Parser{
+  constructor(tokens) {
+    this.tokens = tokens
+    this.position = 0
+    this.readPosition = 0
+    this.length = tokens.length
+    this.Expressions = []
+  }
+
+  readToken(){
+    var token = this.tokens[this.readPosition]
+    this.position = this.readPosition
+    this.readPosition++
+    return token
+  }
+  readNextToken(){
+    if (this.readPosition < this.length){
+      return this.tokens[this.readPosition]
+    }
+
+    return null
+  }
+
+  readCalculateSymbol(){
+    return this.readToken()
+  }
+  readMulExpression(){}
+  parser(){
+    var expression = this.nextExpression()
+    while (expression){
+      this.Expressions.push(expression)
+      expression = this.nextExpression()
+    }
+
+    return this.Expressions
+  }
+  nextExpression(){
+    if (this.readPosition >= this.length){
+      return null
+    }
+    var token = this.readToken()
+
+    switch (token.type){
+      case Numeric.type:
+        var left = token
+        var symbol = this.readCalculateSymbol()
+        var nextToken = this.readNextToken()
+        if (nextToken.type === Numeric.type){
+          this.readToken()
+          return {
+            left:left,
+            symbol:symbol,
+            right:nextToken
+          }
+        }else{
+          return {
+            left:left,
+            symbol:symbol,
+            right:this.nextExpression()
+          }
+        }
+      case AddSymbol.type:
+      case SubSymbol.type:
+      case MulSymbol.type:
+      case DivSymbol.type:
+        var left = this.Expressions.pop()
+        var nextToken = this.readNextToken()
+        if (nextToken.type === Numeric.type){
+          this.readToken()
+            right = nextToken
+        }else{
+          var right = this.nextExpression()
+        }
+
+        return {
+          left:left,
+          symbol:token.type,
+          right:right
+        }
+      default:
+        throw "unknown type"+token.text
+    }
+  }
+}
 
 
-
-let parse = new Parser("123 +4");
-token = parse.parser();
-console.log(token)
+let lexer = new Lexer("123*2+4*5");
+tokens = lexer.parser();
+parser = new Parser(tokens)
+var expressions = parser.parser()
+console.log(JSON.stringify(expressions))
