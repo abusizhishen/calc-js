@@ -1,5 +1,22 @@
 const priorityAddSub = 0
 const priorityMulDiv = 1
+
+function add(a,b) {
+  return a+b
+}
+
+function sub(a,b) {
+  return a-b
+}
+
+function mul(a,b) {
+  return a*b
+}
+
+function div(a,b) {
+  return a/b
+}
+
 class Token{
   constructor(type,text,priority){
     this.type = type
@@ -35,7 +52,7 @@ class AstNode {
   }
 }
 
-const  Numeric = new Token(1,"number",)
+const  Numberic = new Token(1,"number",)
 const  StringType=new Token(2,"string")
 const  AddSymbol=new Token(3,"+",priorityAddSub)
 const  SubSymbol=new Token(4,"-",priorityAddSub)
@@ -56,8 +73,8 @@ class Lexer {
   }
 
   parser(){
-    var tokens = []
-    var token = this.nextToken()
+    let tokens = []
+    let token = this.nextToken()
     while(token){
       tokens.push(token)
       token = this.nextToken()
@@ -66,9 +83,9 @@ class Lexer {
     return tokens
   }
 
-  readNumeric(){
-    var ch = this.readNextCh()
-    var position = this.position
+  readNumberic(){
+    let ch = this.readNextCh()
+    let position = this.position
     while(ch !== 0){
       if (!this.isNumber(ch)) {
         break
@@ -78,7 +95,7 @@ class Lexer {
       ch = this.readNextCh()
     }
 
-    return new Token(Numeric.type, this.code.substring(position,this.readPosition))
+    return new Token(Numberic.type, this.code.substring(position,this.readPosition))
   }
 
   readCh(){
@@ -111,7 +128,7 @@ class Lexer {
       return null
     }
     if (this.isNumber(this.ch)) {
-      return this.readNumeric()
+      return this.readNumberic()
     }
 
     switch (String.fromCharCode(this.ch)) {
@@ -156,7 +173,7 @@ class Parser{
   }
 
   readToken(){
-    var token = this.tokens[this.readPosition]
+    let token = this.tokens[this.readPosition]
     this.position = this.readPosition
     this.readPosition++
     return token
@@ -171,45 +188,41 @@ class Parser{
 
   readMulExpression(){}
   parser(){
-    var expression = this.nextExpression()
-    while (expression){
-      this.Expressions.push(expression)
-      expression = this.nextExpression()
-    }
-
-    return this.Expressions
+    return this.nextExpression()
   }
+
+  backOff(){
+    this.position --
+    this.readPosition --
+  }
+
   nextExpression(){
     if (this.readPosition >= this.length){
       return null
     }
-    var token = this.readToken()
-
+    let token = this.readToken()
+    let number,nextNumber,nextSymbol;
     switch (token.type) {
-      case Numeric.type:
+      case Numberic.type:
         let symbol = this.peek()
         if (symbol === null) {
           return token
         }
-
         this.readToken()
 
-        let number = this.peek()
+        number = this.peek()
         if (number === null) {
           throw "invalid express"
         }
-
         this.readToken()
 
-
-        let nextSymbol = this.peek()
+        nextSymbol = this.peek()
         if (nextSymbol === null) {
           return new AstNode(token, symbol, number)
         }
 
         if (symbol.priority < nextSymbol.priority) {
           this.backOff()
-
           return new AstNode(
             token,
             symbol,
@@ -217,51 +230,40 @@ class Parser{
           )
         }
 
+        this.Expressions.push(new AstNode(token, symbol, number))
+        return this.nextExpression()
+      case AddSymbol.type:
+      case SubSymbol.type:
+      case MulSymbol.type:
+      case DivSymbol.type:
+        let left = this.Expressions.pop()
+        number = this.peek()
+        if (number === null){
+          throw "invalid expression"
+        }
         this.readToken()
-        return new AstNode(new AstNode(token, symbol, number), nextSymbol, this.nextExpression())
+        nextSymbol = this.peek()
+        if (nextSymbol === null){
+          return new AstNode(left,token,number)
+        }
+        if (token.priority < nextSymbol.priority ){
+          this.backOff()
+          return new AstNode(left,token,this.nextExpression())
+        }
+
+        this.Expressions.push(new AstNode(left, token, number))
+        return this.nextExpression()
 
       default:
         throw "invalid express"
     }
   }
-
-  getLastSymbol(astNode) {
-    if (astNode.right instanceof Token){
-      return astNode.symbol
-    }else if (astNode instanceof AstNode){
-      return this.getLastSymbol(astNode.right)
-    }else{
-      throw ("unknown astNode: "+ JSON.stringify(astNode))
-    }
-  }
-
-  backOff(){
-    this.position --
-    this.readPosition --
-  }
 }
 
-function add(a,b) {
-  return a+b
-}
-
-function sub(a,b) {
-  return a-b
-}
-
-function mul(a,b) {
-  return a*b
-}
-
-function div(a,b) {
-  return a/b
-}
-
-
-let lexer = new Lexer("1+120*2/4");
+let lexer = new Lexer("2*2/4+1+120*2+3*3");
 tokens = lexer.parser();
 parser = new Parser(tokens)
-var ast = parser.parser()[0]
+let ast = parser.nextExpression()
 console.log(JSON.stringify([ast]))
 console.log(ast.value())
 
