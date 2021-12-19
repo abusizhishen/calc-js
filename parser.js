@@ -161,7 +161,7 @@ class Parser{
     this.readPosition++
     return token
   }
-  readNextToken(){
+  peek(){
     if (this.readPosition < this.length){
       return this.tokens[this.readPosition]
     }
@@ -185,70 +185,59 @@ class Parser{
     }
     var token = this.readToken()
 
-    switch (token.type){
+    switch (token.type) {
       case Numeric.type:
-        var left = token
-        var symbol = this.readToken()
-        var nextToken = this.readNextToken()
-        if (nextToken.type === Numeric.type){
-          this.readToken()
-          var node = new AstNode(
-            left,
-            symbol,
-            nextToken
-          )
+        let symbol = this.peek()
+        if (symbol === null) {
+          return token
+        }
 
-          var nextSymbol = this.readNextToken()
-          if (nextSymbol == null){
-            return node
-          }
+        this.readToken()
 
-          if (symbol.priority === nextSymbol.priority) {
-              return node
-          }
+        let number = this.peek()
+        if (number === null) {
+          throw "invalid express"
+        }
 
-          if (symbol.priority < nextSymbol.priority){
-            return new AstNode(
-              left,
-              symbol,
-              new AstNode(
-                nextToken,
-                nextSymbol,
-                this.nextExpression()
-              ))
+        this.readToken()
 
-          }
+
+        let nextSymbol = this.peek()
+        if (nextSymbol === null) {
+          return new AstNode(token, symbol, number)
+        }
+
+        if (symbol.priority < nextSymbol.priority) {
+          this.backOff()
 
           return new AstNode(
-            left,
+            token,
             symbol,
-            nextToken
+            this.nextExpression()
           )
-        }else{
-
-          throw ("invalid token: "+ nextToken.type)
-        }
-      case AddSymbol.type:
-      case SubSymbol.type:
-      case MulSymbol.type:
-      case DivSymbol.type:
-        var left = this.Expressions.pop()
-        var nextToken = this.readNextToken()
-        if (nextToken.type === Numeric.type){
-          this.readToken()
-          right = nextToken
-        }else{
-          var right = this.nextExpression()
         }
 
-        return new AstNode(
-          left,
-          token,
-          right
-        )
+        this.readToken()
+        return new AstNode(new AstNode(token, symbol, number), nextSymbol, this.nextExpression())
+
       default:
-        throw "unknown type"+token.text
+        throw "invalid express"
     }
+  }
+
+  getLastSymbol(astNode) {
+    if (astNode.right instanceof Token){
+      return astNode.symbol
+    }else if (astNode instanceof AstNode){
+      return this.getLastSymbol(astNode.right)
+    }else{
+      throw ("unknown astNode: "+ JSON.stringify(astNode))
+    }
+  }
+
+  backOff(){
+    this.position --
+    this.readPosition --
   }
 }
 
@@ -269,7 +258,7 @@ function div(a,b) {
 }
 
 
-let lexer = new Lexer("123*2+4*0");
+let lexer = new Lexer("1+120*2/4");
 tokens = lexer.parser();
 parser = new Parser(tokens)
 var ast = parser.parser()[0]
